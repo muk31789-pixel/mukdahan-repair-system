@@ -152,8 +152,17 @@ function showTrackForm(prefill=''){
  b.innerHTML='<div class="field"><label>รหัสแจ้งซ่อม</label><input id="trackCode" placeholder="เช่น #00001" value="'+esc(prefill)+'"></div><div class="actions"><button class="btn green" onclick="trackByCode()">ตรวจสอบสถานะ</button><button class="btn light" onclick="checkDuplicate()">มีคนแจ้งปัญหานี้แล้วหรือยัง?</button><button class="btn light small" onclick="askNotify()">🔔 เปิดแจ้งเตือน</button></div><div id="trackResult" style="margin-top:16px"></div><div class="notice">🔐 หน้านี้ไม่แสดงชั้นเรียน เลขที่ หรือข้อมูลส่วนตัวของผู้แจ้ง</div>';
  if(prefill)trackByCode();
 }
-async function trackByCode(){const code=document.getElementById('trackCode').value.trim().replace('#',''),out=document.getElementById('trackResult');try{const d=await apiGet({action:'track',code});if(!d.found){out.innerHTML='<div class="notice">ไม่พบรหัสแจ้งซ่อมนี้ กรุณาตรวจสอบรหัสอีกครั้ง</div>';return;}const r=d.report;out.innerHTML='<div class="item"><div class="item-head"><div><b>'+ticket(r)+'</b><br><span class="small">'+esc(r.place)+' • '+esc(r.spot)+'</span></div>'+badge(r.status)+'</div><div class="item-body"><p><b>ปัญหา:</b> '+esc(r.detail)+'</p><p class="small">แจ้งเมื่อ '+fmt(r.createdAt)+'</p><ol class="timeline">'+(r.history||[]).map(h=>'<li><b>'+STATUS[h.status].label+'</b><br><span class="small">'+fmt(h.at)+(h.note?' — '+esc(h.note):'')+'</span></li>').join('')+'</ol></div></div>';}catch(e){out.innerHTML='<div class="notice">เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่</div>';}}
-
+async function trackByCode(){
+ const code=document.getElementById('trackCode').value.trim().replace('#','');
+ const out=document.getElementById('trackResult');
+ if(!code){out.innerHTML='<div class="notice">กรุณากรอกรหัสแจ้งซ่อม</div>';return;}
+ try{
+  const d=await apiGet({action:'track',code});
+  if(!d.ok||!d.report){out.innerHTML='<div class="notice">ไม่พบรหัสแจ้งซ่อมนี้ กรุณาตรวจสอบรหัสอีกครั้ง</div>';return;}
+  const r=d.report;
+  out.innerHTML='<div class="item"><div class="item-head"><div><b>'+ticket(r)+'</b><br><span class="small">'+esc(r.place)+' • '+esc(r.spot)+'</span></div>'+badge(r.status)+'</div><div class="item-body"><p><b>ปัญหา:</b> '+esc(r.detail)+'</p><p class="small">แจ้งเมื่อ '+fmt(r.createdAt)+'</p><ol class="timeline">'+(r.history||[]).map(h=>'<li><b>'+((STATUS[h.status]||{label:h.status}).label)+'</b><br><span class="small">'+fmt(h.at)+(h.note?' — '+esc(h.note):'')+'</span></li>').join('')+'</ol></div></div>';
+ }catch(e){out.innerHTML='<div class="notice">เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่</div>';}
+}
 function checkDuplicate(){document.getElementById('trackResult').innerHTML='<div class="grid"><div class="field"><label>สถานที่</label><select id="checkPlace"><option value="">เลือกสถานที่</option>'+PLACES.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></div><div class="field"><label>ห้อง / จุด</label><input id="checkSpot" placeholder="เช่น ห้อง 402"></div></div><div class="field"><label>ประเภทปัญหา</label><select id="checkCat"><option value="">ทุกประเภท</option>'+CATS.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></div><button class="btn green" onclick="runDuplicateCheck()">ตรวจสอบ</button><div id="dupResult" style="margin-top:12px"></div>';}
 async function runDuplicateCheck(){const p=document.getElementById('checkPlace').value,s=document.getElementById('checkSpot').value.trim(),cat=document.getElementById('checkCat').value;try{const d=await apiGet({action:'duplicate',place:p,spot:s,category:cat});document.getElementById('dupResult').innerHTML=d.count?'<div class="notice">⚠️ พบเรื่องที่ยังดำเนินการอยู่ '+d.count+' รายการในจุดนี้ โดยไม่แสดงข้อมูลผู้แจ้ง</div>':'<div class="notice">✅ ยังไม่พบเรื่องที่กำลังดำเนินการอยู่ในจุดนี้</div>';}catch(e){document.getElementById('dupResult').innerHTML='<div class="notice">เชื่อมต่อระบบไม่ได้</div>';}}
 
