@@ -125,10 +125,28 @@ function renderReport(){
  document.getElementById('send').onclick=submitReport;document.getElementById('clear').onclick=renderReport;
 }
 async function submitReport(){
- const cl=document.getElementById('studentClass').value,no=Number(document.getElementById('studentNo').value),place=document.getElementById('place').value,other=(document.getElementById('otherPlace')?.value||'').trim(),finalPlace=place==='สถานที่อื่นๆ'?other:place,spot=document.getElementById('spot').value.trim(),cat=document.getElementById('cat').value,urg=document.getElementById('urg').value,detail=document.getElementById('detail').value.trim();
+ const cl=document.getElementById('studentClass').value;
+ const no=Number(document.getElementById('studentNo').value);
+ const place=document.getElementById('place').value;
+ const other=(document.getElementById('otherPlace')?.value||'').trim();
+ const finalPlace=place==='สถานที่อื่นๆ'?other:place;
+ const spot=document.getElementById('spot').value.trim();
+ const cat=document.getElementById('cat').value;
+ const urg=document.getElementById('urg').value;
+ const detail=document.getElementById('detail').value.trim();
  if(!cl||!no||!place||(place==='สถานที่อื่นๆ'&&!other)||!spot||!cat||detail.length<5){alert('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบ และระบุห้อง/จุดที่พบปัญหา');return;}
- try{const d=await apiGet({action:'duplicate',place:finalPlace,spot,category:cat});if(d.count>0&&!confirm('มีคนแจ้งปัญหาลักษณะเดียวกันที่สถานที่และจุดนี้แล้ว ('+(d.codes||[]).join(', ')+')\nต้องการส่งเรื่องซ้ำหรือไม่?'))return;const x=await apiPost({action:'report',studentClass:cl,studentNo:no,place:finalPlace,spot,category:cat,urgency:urg,detail});if(!x.ok)throw new Error(x.error||'ส่งข้อมูลไม่สำเร็จ');const r=x.report;askNotify();document.getElementById('reportBox').innerHTML='<div class="ticket">ส่งเรื่องเรียบร้อย<small>รหัสแจ้งซ่อม</small><strong>'+ticket(r)+'</strong></div><div class="notice">📌 กรุณาจดหรือถ่ายภาพรหัสนี้ไว้ สำหรับติดตามสถานะภายหลัง</div><p><b>'+esc(finalPlace)+' — '+esc(spot)+'</b></p><div class="actions"><button class="btn green" onclick="switchPage(\'track\');showTrackForm(\''+ticket(r)+'\')">ติดตามเรื่องนี้</button><button class="btn light" onclick="renderReport()">แจ้งเรื่องอื่น</button></div>;}catch(e){alert('เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่อีกครั้ง');}}
-
+ try{
+  const d=await apiGet({action:'duplicate',place:finalPlace,spot,category:cat});
+  if(d.count>0&&!confirm('มีคนแจ้งปัญหาลักษณะเดียวกันที่สถานที่และจุดนี้แล้ว ต้องการส่งเรื่องซ้ำหรือไม่?'))return;
+  const x=await apiPost({action:'report',studentClass:cl,studentNo:no,place:finalPlace,spot,category:cat,urgency:urg,detail});
+  if(!x.ok)throw new Error(x.error||'ส่งข้อมูลไม่สำเร็จ');
+  const r=x.report;
+  askNotify();
+  document.getElementById('reportBox').innerHTML='<div class="ticket">ส่งเรื่องเรียบร้อย<small>รหัสแจ้งซ่อม</small><strong>'+ticket(r)+'</strong></div><div class="notice">📌 กรุณาจดหรือถ่ายภาพรหัสนี้ไว้ สำหรับติดตามสถานะภายหลัง</div><p><b>'+esc(finalPlace)+' — '+esc(spot)+'</b></p><div class="actions"><button class="btn green" id="trackNewBtn">ติดตามเรื่องนี้</button><button class="btn light" id="newReportBtn">แจ้งเรื่องอื่น</button></div>';
+  document.getElementById('trackNewBtn').onclick=()=>{switchPage('track');showTrackForm(ticket(r));};
+  document.getElementById('newReportBtn').onclick=renderReport;
+ }catch(e){alert('เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่อีกครั้ง');}
+}
 function showTrackForm(prefill=''){
  const b=document.getElementById('trackBox');
  b.innerHTML='<div class="field"><label>รหัสแจ้งซ่อม</label><input id="trackCode" placeholder="เช่น #00001" value="'+esc(prefill)+'"></div><div class="actions"><button class="btn green" onclick="trackByCode()">ตรวจสอบสถานะ</button><button class="btn light" onclick="checkDuplicate()">มีคนแจ้งปัญหานี้แล้วหรือยัง?</button><button class="btn light small" onclick="askNotify()">🔔 เปิดแจ้งเตือน</button></div><div id="trackResult" style="margin-top:16px"></div><div class="notice">🔐 หน้านี้ไม่แสดงชั้นเรียน เลขที่ หรือข้อมูลส่วนตัวของผู้แจ้ง</div>';
