@@ -99,12 +99,16 @@ table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px s
 <div class="footer">สีประจำโรงเรียน: เขียว–ขาว • ระบบต้นแบบสำหรับโครงงาน</div>
 
 <script>
-const SCHOOL='โรงเรียนมุกดาหาร', STAFF_PIN='4321', KEY='mukdahan-repair-v3';
+const SCHOOL='โรงเรียนมุกดาหาร', STAFF_PIN='4321';
+const API_URL='https://script.google.com/macros/s/AKfycbwvNT6441ydZJ8PHvAzMvE2qFIZV4fiBWM2ShJMoqkwrubdcaeUBPB3NOr4aeLbhvnHSQ/exec';
 const STATUS={new:{label:'รอดำเนินการ',cls:'new'},doing:{label:'กำลังซ่อม',cls:'doing'},done:{label:'ซ่อมเสร็จแล้ว',cls:'done'}};
 const PLACES=['อาคารเรียน 1','อาคารเรียน 2','อาคารเรียน 3','อาคารเรียน 4','อาคารเรียน 5','อาคารอุตสาหกรรม','อาคารการงานอาชีพ (SMTE)','อาคารพละ','อาคารนาฏศิลป์','เรือนดอกแก้ว','ห้องประชาสัมพันธ์','สนามวอลเลย์บอลในร่ม','โรงจอดรถจักรยานยนต์','สมาคมศิษย์เก่า','สำนักงานการโรงเรียน','ห้องสมุด','หน้าเสาธง','สนามฟุตบอล','สนามบาสเก็ตบอล','สนามตะกร้อ','โรงอาหาร','ห้องคอมพิวเตอร์','ห้องแนะแนว','อาคารดนตรี','อาคารศิลปะ','อาคารชั่วคราว','โคกหนองนา Model','ห้องสืบค้น/สวนพฤกษศาสตร์','ห้องน้ำใกล้อาคาร 5','ห้องน้ำใกล้อาคาร 2','ห้องประชุมรวงผึ้ง','ห้องประชุมช้างน้าว','ห้องประชุมแก้วกินรี','ห้องประชุมแก้วมุกดา','เรือนแก้วมุกดา','ลานจอดรถ','สถานที่อื่นๆ'];
 const CATS=['ไฟฟ้า / หลอดไฟ','น้ำประปา / ห้องน้ำ','แอร์ / พัดลม','โต๊ะ เก้าอี้ / อาคาร','คอมพิวเตอร์ / อินเทอร์เน็ต','ความสะอาด','อื่น ๆ'];
-let reports=JSON.parse(localStorage.getItem(KEY)||'[]'), staff=false;
-function save(){localStorage.setItem(KEY,JSON.stringify(reports));}
+let reports=[], staff=false;
+async function apiGet(params){const u=new URL(API_URL);Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));const r=await fetch(u);return r.json();}
+async function apiPost(data){const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)});return r.json();}
+async function loadReports(){try{const x=await apiGet({action:'staff',pin:STAFF_PIN});reports=x.reports||[];}catch(e){reports=[];}}
+function save(){}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function ticket(r){return '#'+String(r.id).padStart(5,'0');}
 function fmt(t){return new Date(t).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});}
@@ -120,39 +124,36 @@ function renderReport(){
  document.getElementById('place').onchange=()=>{const p=document.getElementById('place').value;document.getElementById('spotWrap').innerHTML=roomField(p);document.getElementById('otherPlaceWrap').hidden=p!=='สถานที่อื่นๆ';};
  document.getElementById('send').onclick=submitReport;document.getElementById('clear').onclick=renderReport;
 }
-function submitReport(){
+async function submitReport(){
  const cl=document.getElementById('studentClass').value,no=Number(document.getElementById('studentNo').value),place=document.getElementById('place').value,other=(document.getElementById('otherPlace')?.value||'').trim(),finalPlace=place==='สถานที่อื่นๆ'?other:place,spot=document.getElementById('spot').value.trim(),cat=document.getElementById('cat').value,urg=document.getElementById('urg').value,detail=document.getElementById('detail').value.trim();
  if(!cl||!no||!place||(place==='สถานที่อื่นๆ'&&!other)||!spot||!cat||detail.length<5){alert('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบ และระบุห้อง/จุดที่พบปัญหา');return;}
- const duplicate=reports.find(r=>r.status!=='done'&&r.place===finalPlace&&r.spot.toLowerCase()===spot.toLowerCase()&&r.category===cat);
- if(duplicate&&!confirm('มีคนแจ้งปัญหาลักษณะเดียวกันที่สถานที่และจุดนี้แล้ว ('+ticket(duplicate)+')\nต้องการส่งเรื่องซ้ำหรือไม่?'))return;
- const id=reports.reduce((m,r)=>Math.max(m,r.id||0),0)+1,now=Date.now(),r={id,studentClass:cl,studentNo:no,place:finalPlace,spot,category:cat,urgency:urg,detail,status:'new',createdAt:now,history:[{status:'new',at:now,note:'รับเรื่องแจ้งซ่อมแล้ว'}]};
- reports.unshift(r);save();askNotify();
- document.getElementById('reportBox').innerHTML='<div class="ticket">ส่งเรื่องเรียบร้อย<small>รหัสแจ้งซ่อม</small><strong>'+ticket(r)+'</strong></div><div class="notice">📌 กรุณาจดหรือถ่ายภาพรหัสนี้ไว้ สำหรับติดตามสถานะภายหลัง</div><p><b>'+esc(finalPlace)+' — '+esc(spot)+'</b></p><div class="actions"><button class="btn green" onclick="switchPage(\'track\');showTrackForm(\''+ticket(r)+'\')">ติดตามเรื่องนี้</button><button class="btn light" onclick="renderReport()">แจ้งเรื่องอื่น</button></div>';
-}
+ try{const d=await apiGet({action:'duplicate',place:finalPlace,spot,category:cat});if(d.count>0&&!confirm('มีคนแจ้งปัญหาลักษณะเดียวกันที่สถานที่และจุดนี้แล้ว ('+(d.codes||[]).join(', ')+')\nต้องการส่งเรื่องซ้ำหรือไม่?'))return;const x=await apiPost({action:'report',studentClass:cl,studentNo:no,place:finalPlace,spot,category:cat,urgency:urg,detail});if(!x.ok)throw new Error(x.error||'ส่งข้อมูลไม่สำเร็จ');const r=x.report;askNotify();document.getElementById('reportBox').innerHTML='<div class="ticket">ส่งเรื่องเรียบร้อย<small>รหัสแจ้งซ่อม</small><strong>'+ticket(r)+'</strong></div><div class="notice">📌 กรุณาจดหรือถ่ายภาพรหัสนี้ไว้ สำหรับติดตามสถานะภายหลัง</div><p><b>'+esc(finalPlace)+' — '+esc(spot)+'</b></p><div class="actions"><button class="btn green" onclick="switchPage(\'track\');showTrackForm(\''+ticket(r)+'\')">ติดตามเรื่องนี้</button><button class="btn light" onclick="renderReport()">แจ้งเรื่องอื่น</button></div>;}catch(e){alert('เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่อีกครั้ง');}}
+
 function showTrackForm(prefill=''){
  const b=document.getElementById('trackBox');
  b.innerHTML='<div class="field"><label>รหัสแจ้งซ่อม</label><input id="trackCode" placeholder="เช่น #00001" value="'+esc(prefill)+'"></div><div class="actions"><button class="btn green" onclick="trackByCode()">ตรวจสอบสถานะ</button><button class="btn light" onclick="checkDuplicate()">มีคนแจ้งปัญหานี้แล้วหรือยัง?</button><button class="btn light small" onclick="askNotify()">🔔 เปิดแจ้งเตือน</button></div><div id="trackResult" style="margin-top:16px"></div><div class="notice">🔐 หน้านี้ไม่แสดงชั้นเรียน เลขที่ หรือข้อมูลส่วนตัวของผู้แจ้ง</div>';
  if(prefill)trackByCode();
 }
-function trackByCode(){
- const code=document.getElementById('trackCode').value.trim().replace('#',''),r=reports.find(x=>x.id===Number(code)),out=document.getElementById('trackResult');
- if(!r){out.innerHTML='<div class="notice">ไม่พบรหัสแจ้งซ่อมนี้ กรุณาตรวจสอบรหัสอีกครั้ง</div>';return;}
- out.innerHTML='<div class="item"><div class="item-head"><div><b>'+ticket(r)+'</b><br><span class="small">'+esc(r.place)+' • '+esc(r.spot)+'</span></div>'+badge(r.status)+'</div><div class="item-body"><p><b>ปัญหา:</b> '+esc(r.detail)+'</p><p class="small">แจ้งเมื่อ '+fmt(r.createdAt)+'</p><ol class="timeline">'+r.history.map(h=>'<li><b>'+STATUS[h.status].label+'</b><br><span class="small">'+fmt(h.at)+(h.note?' — '+esc(h.note):'')+'</span></li>').join('')+'</ol></div></div>';
-}
+async function trackByCode(){const code=document.getElementById('trackCode').value.trim().replace('#',''),out=document.getElementById('trackResult');try{const d=await apiGet({action:'track',code});if(!d.found){out.innerHTML='<div class="notice">ไม่พบรหัสแจ้งซ่อมนี้ กรุณาตรวจสอบรหัสอีกครั้ง</div>';return;}const r=d.report;out.innerHTML='<div class="item"><div class="item-head"><div><b>'+ticket(r)+'</b><br><span class="small">'+esc(r.place)+' • '+esc(r.spot)+'</span></div>'+badge(r.status)+'</div><div class="item-body"><p><b>ปัญหา:</b> '+esc(r.detail)+'</p><p class="small">แจ้งเมื่อ '+fmt(r.createdAt)+'</p><ol class="timeline">'+(r.history||[]).map(h=>'<li><b>'+STATUS[h.status].label+'</b><br><span class="small">'+fmt(h.at)+(h.note?' — '+esc(h.note):'')+'</span></li>').join('')+'</ol></div></div>';}catch(e){out.innerHTML='<div class="notice">เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่</div>';}}
+
 function checkDuplicate(){document.getElementById('trackResult').innerHTML='<div class="grid"><div class="field"><label>สถานที่</label><select id="checkPlace"><option value="">เลือกสถานที่</option>'+PLACES.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></div><div class="field"><label>ห้อง / จุด</label><input id="checkSpot" placeholder="เช่น ห้อง 402"></div></div><div class="field"><label>ประเภทปัญหา</label><select id="checkCat"><option value="">ทุกประเภท</option>'+CATS.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></div><button class="btn green" onclick="runDuplicateCheck()">ตรวจสอบ</button><div id="dupResult" style="margin-top:12px"></div>';}
-function runDuplicateCheck(){const p=document.getElementById('checkPlace').value,s=document.getElementById('checkSpot').value.trim().toLowerCase(),cat=document.getElementById('checkCat').value,m=reports.filter(r=>r.status!=='done'&&r.place===p&&(!s||r.spot.toLowerCase()===s)&&(!cat||r.category===cat));document.getElementById('dupResult').innerHTML=m.length?'<div class="notice">⚠️ พบเรื่องที่ยังดำเนินการอยู่ '+m.length+' รายการในจุดนี้ โดยไม่แสดงข้อมูลผู้แจ้ง</div>':'<div class="notice">✅ ยังไม่พบเรื่องที่กำลังดำเนินการอยู่ในจุดนี้</div>';}
+async function runDuplicateCheck(){const p=document.getElementById('checkPlace').value,s=document.getElementById('checkSpot').value.trim(),cat=document.getElementById('checkCat').value;try{const d=await apiGet({action:'duplicate',place:p,spot:s,category:cat});document.getElementById('dupResult').innerHTML=d.count?'<div class="notice">⚠️ พบเรื่องที่ยังดำเนินการอยู่ '+d.count+' รายการในจุดนี้ โดยไม่แสดงข้อมูลผู้แจ้ง</div>':'<div class="notice">✅ ยังไม่พบเรื่องที่กำลังดำเนินการอยู่ในจุดนี้</div>';}catch(e){document.getElementById('dupResult').innerHTML='<div class="notice">เชื่อมต่อระบบไม่ได้</div>';}}
+
 function renderStaffLogin(){document.getElementById('staffBox').innerHTML='<div class="lock"><h3>เข้าสู่ระบบเจ้าหน้าที่</h3><p class="small">สำหรับจัดการงานซ่อมเท่านั้น</p><div class="field"><label>รหัสเจ้าหน้าที่</label><input id="pin" type="password" inputmode="numeric" maxlength="12"></div><button class="btn green" onclick="loginStaff()">เข้าสู่ระบบ</button></div>';}
-function loginStaff(){if(document.getElementById('pin').value===STAFF_PIN){staff=true;renderStaff();}else alert('รหัสเจ้าหน้าที่ไม่ถูกต้อง');}
+async function loginStaff(){if(document.getElementById('pin').value===STAFF_PIN){staff=true;await loadReports();renderStaff();}else alert('รหัสเจ้าหน้าที่ไม่ถูกต้อง');}
+
 function renderStaff(){
  const box=document.getElementById('staffBox');if(!staff){renderStaffLogin();return;}
  const rows=reports.slice().sort((a,b)=>(a.status==='done')-(b.status==='done')||(b.createdAt-a.createdAt));
  box.innerHTML='<div class="actions"><button class="btn light" onclick="staff=false;renderStaff()">ออกจากระบบ</button><span class="small">พบ '+reports.length+' รายการ</span></div><div class="notice">🔐 ข้อมูลชั้นเรียนและเลขที่ผู้แจ้งแสดงเฉพาะเจ้าหน้าที่</div>'+(rows.length?rows.map(staffCard).join(''):'<div class="empty">ยังไม่มีรายการแจ้งซ่อม</div>');
 }
 function staffCard(r){return '<div class="item"><div class="item-head"><div><b>'+ticket(r)+'</b> '+badge(r.status)+'<br>'+esc(r.place)+' — '+esc(r.spot)+'<br><span class="small">ผู้แจ้ง: '+esc(r.studentClass)+' เลขที่ '+r.studentNo+' • '+fmt(r.createdAt)+'</span></div></div><div class="item-body"><p><b>'+esc(r.category)+'</b> • '+esc(r.detail)+'</p><div class="grid"><div class="field"><label>สถานะใหม่</label><select id="s-'+r.id+'">'+Object.entries(STATUS).map(([k,v])=>'<option value="'+k+'" '+(r.status===k?'selected':'')+'>'+v.label+'</option>').join('')+'</select></div><div class="field"><label>ข้อความถึงผู้แจ้ง</label><input id="n-'+r.id+'" placeholder="เช่น ช่างจะเข้าตรวจพรุ่งนี้"></div></div><div class="actions"><button class="btn green" onclick="updateStatus('+r.id+')">บันทึกความคืบหน้า</button><button class="btn red" onclick="deleteReport('+r.id+')">ลบรายการ</button></div></div></div>';}
-function updateStatus(id){const r=reports.find(x=>x.id===id),s=document.getElementById('s-'+id).value,n=document.getElementById('n-'+id).value.trim(),now=Date.now();if(r.status===s&&!n){alert('เลือกสถานะใหม่หรือใส่ข้อความก่อนบันทึก');return;}r.status=s;r.history.push({status:s,at:now,note:n||('อัปเดตสถานะเป็น '+STATUS[s].label)});save();notify(ticket(r)+' เปลี่ยนสถานะเป็น '+STATUS[s].label);renderStaff();}
-function deleteReport(id){if(confirm('ยืนยันลบรายการนี้?')){reports=reports.filter(r=>r.id!==id);save();renderStaff();}}
+async function updateStatus(id){const r=reports.find(x=>x.id===id),s=document.getElementById('s-'+id).value,n=document.getElementById('n-'+id).value.trim();if(r.status===s&&!n){alert('เลือกสถานะใหม่หรือใส่ข้อความก่อนบันทึก');return;}const x=await apiPost({action:'update',pin:STAFF_PIN,id,status:s,note:n});if(!x.ok){alert('บันทึกไม่สำเร็จ');return;}await loadReports();renderStaff();}
+
+async function deleteReport(id){if(confirm('ยืนยันลบรายการนี้?')){const x=await apiPost({action:'delete',pin:STAFF_PIN,id});if(!x.ok){alert('ลบไม่สำเร็จ');return;}await loadReports();renderStaff();}}
+
 function switchPage(page){document.querySelectorAll('.page').forEach(x=>x.hidden=x.id!==page);document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));if(page==='report')renderReport();if(page==='track')showTrackForm();if(page==='staff')renderStaff();}
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>switchPage(b.dataset.page));switchPage('report');
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>switchPage(b.dataset.page));renderReport();
 </script>
 </body>
 </html>
