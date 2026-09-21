@@ -70,7 +70,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px s
 </div>
 <nav class="nav">
 <button class="active" data-page="report">แจ้งซ่อม</button>
-<button data-page="track">รายการของฉัน</button>
+<button data-page="track">ติดตามสถานะ</button>
 <button data-page="staff">เจ้าหน้าที่</button>
 </nav>
 </header>
@@ -99,207 +99,60 @@ table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px s
 <div class="footer">สีประจำโรงเรียน: เขียว–ขาว • ระบบต้นแบบสำหรับโครงงาน</div>
 
 <script>
-const SCHOOL='โรงเรียนมุกดาหาร';
-const STAFF_PIN='4321';
-const KEY='mukdahan-repair-v2';
-const STATUS={
- new:{label:'รอดำเนินการ',cls:'new'},
- doing:{label:'กำลังซ่อม',cls:'doing'},
- done:{label:'ซ่อมเสร็จแล้ว',cls:'done'}
-};
-
-// สถานที่ตามแผนผังที่แนบมา โดยตัดรายการที่เกี่ยวกับครู/นักการออก
-const PLACES=[
- 'อาคารเรียน 1','อาคารเรียน 2','อาคารเรียน 3','อาคารเรียน 4','อาคารเรียน 5',
- 'อาคารอุตสาหกรรม','อาคารการงานอาชีพ (SMTE)','อาคารพละ','อาคารนาฏศิลป์',
- 'เรือนดอกแก้ว','ห้องประชาสัมพันธ์','สนามวอลเลย์บอลในร่ม','โรงจอดรถจักรยานยนต์',
- 'สมาคมศิษย์เก่า','สำนักงานการโรงเรียน','ห้องสมุด','หน้าเสาธง','สนามฟุตบอล',
- 'สนามบาสเก็ตบอล','สนามตะกร้อ','โรงอาหาร','ห้องคอมพิวเตอร์','ห้องแนะแนว',
- 'อาคารดนตรี','อาคารศิลปะ','อาคารชั่วคราว','โคกหนองนา Model',
- 'ห้องสืบค้น/สวนพฤกษศาสตร์','ห้องน้ำใกล้อาคาร 5','ห้องน้ำใกล้อาคาร 2',
- 'ห้องประชุมรวงผึ้ง','ห้องประชุมช้างน้าว','ห้องประชุมแก้วกินรี','ห้องประชุมแก้วมุกดา',
- 'เรือนแก้วมุกดา','ลานจอดรถ','สถานที่อื่นๆ'
-];
+const SCHOOL='โรงเรียนมุกดาหาร', STAFF_PIN='4321', KEY='mukdahan-repair-v3';
+const STATUS={new:{label:'รอดำเนินการ',cls:'new'},doing:{label:'กำลังซ่อม',cls:'doing'},done:{label:'ซ่อมเสร็จแล้ว',cls:'done'}};
+const PLACES=['อาคารเรียน 1','อาคารเรียน 2','อาคารเรียน 3','อาคารเรียน 4','อาคารเรียน 5','อาคารอุตสาหกรรม','อาคารการงานอาชีพ (SMTE)','อาคารพละ','อาคารนาฏศิลป์','เรือนดอกแก้ว','ห้องประชาสัมพันธ์','สนามวอลเลย์บอลในร่ม','โรงจอดรถจักรยานยนต์','สมาคมศิษย์เก่า','สำนักงานการโรงเรียน','ห้องสมุด','หน้าเสาธง','สนามฟุตบอล','สนามบาสเก็ตบอล','สนามตะกร้อ','โรงอาหาร','ห้องคอมพิวเตอร์','ห้องแนะแนว','อาคารดนตรี','อาคารศิลปะ','อาคารชั่วคราว','โคกหนองนา Model','ห้องสืบค้น/สวนพฤกษศาสตร์','ห้องน้ำใกล้อาคาร 5','ห้องน้ำใกล้อาคาร 2','ห้องประชุมรวงผึ้ง','ห้องประชุมช้างน้าว','ห้องประชุมแก้วกินรี','ห้องประชุมแก้วมุกดา','เรือนแก้วมุกดา','ลานจอดรถ','สถานที่อื่นๆ'];
 const CATS=['ไฟฟ้า / หลอดไฟ','น้ำประปา / ห้องน้ำ','แอร์ / พัดลม','โต๊ะ เก้าอี้ / อาคาร','คอมพิวเตอร์ / อินเทอร์เน็ต','ความสะอาด','อื่น ๆ'];
-
-let reports=JSON.parse(localStorage.getItem(KEY)||'[]');
-let currentPage='report', staff=false;
-
+let reports=JSON.parse(localStorage.getItem(KEY)||'[]'), staff=false;
 function save(){localStorage.setItem(KEY,JSON.stringify(reports));}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function ticket(r){return '#'+String(r.id).padStart(5,'0');}
 function fmt(t){return new Date(t).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});}
-function badge(s){return `<span class="badge ${STATUS[s].cls}">${STATUS[s].label}</span>`;}
-function notify(msg){if('Notification' in window && Notification.permission==='granted') new Notification('ระบบแจ้งซ่อม โรงเรียนมุกดาหาร',{body:msg});}
-function askNotify(){if('Notification' in window && Notification.permission==='default') Notification.requestPermission();}
-
-function classOptions() {
- let a='<option value="">เลือกชั้นเรียน</option>';
- for(let g=1;g<=6;g++) for(let c=1;c<=12;c++) a+=`<option value="ม.${g}/${c}">ม.${g}/${c}</option>`;
- return a;
-}
-function roomField(place=''){
- const building=/^อาคาร/.test(place);
- return `<label>${building?'ห้องเรียน / ห้องที่พบปัญหา':'ห้อง / จุดที่พบปัญหา'} <span class="required">*</span></label>
- <input id="spot" maxlength="80" placeholder="${building?'เช่น ห้อง 402 หรือ ห้องปฏิบัติการ':'เช่น จุดล้างมือด้านหน้า หรือ ห้องน้ำชาย'}">
- <div class="help">กรณีเลือกอาคาร ต้องระบุห้องทุกครั้ง</div>`;
-}
-
-
-let currentUser=JSON.parse(localStorage.getItem('repair_current_user')||'null');
-
-function getUsers(){return JSON.parse(localStorage.getItem('repair_users')||'{}');}
-function saveUsers(u){localStorage.setItem('repair_users',JSON.stringify(u));}
-function userKey(id){return String(id).trim();}
-function accountLabel(){
- if(!currentUser) return '';
- return `${currentUser.className} เลขที่ ${currentUser.no}`;
-}
-function showAuth(mode='login'){
- const b=document.getElementById('authBox');
- b.innerHTML=mode==='login'?`
-  <img class="auth-logo" src="data:image/png;base64,${LOGO_BASE64}">
-  <h2 class="auth-title">เข้าสู่ระบบนักเรียน</h2>
-  <p class="auth-sub">เข้าสู่ระบบเพื่อแจ้งซ่อมและดูประวัติเรื่องที่เคยแจ้ง</p>
-  <div class="field"><label>รหัสนักเรียน <span class="required">*</span></label><input id="loginId" inputmode="numeric" placeholder="กรอกรหัสประจำตัวนักเรียน"></div>
-  <div class="field"><label>รหัสผ่าน <span class="required">*</span></label><input id="loginPass" type="password" placeholder="กรอกรหัสผ่าน"></div>
-  <button class="btn green" style="width:100%" onclick="login()">เข้าสู่ระบบ</button>
-  <p class="help" style="text-align:center;margin-top:15px">ยังไม่มีบัญชี? <a href="#" onclick="showAuth('register');return false">สมัครบัญชี</a></p>
- `:`
-  <img class="auth-logo" src="data:image/png;base64,${LOGO_BASE64}">
-  <h2 class="auth-title">สร้างบัญชีนักเรียน</h2>
-  <p class="auth-sub">ใช้บัญชีนี้เพื่อให้ระบบจำเรื่องที่คุณแจ้งไว้</p>
-  <div class="grid">
-   <div class="field"><label>ชั้น / ห้อง <span class="required">*</span></label><select id="regClass">${classOptions()}</select></div>
-   <div class="field"><label>เลขที่ <span class="required">*</span></label><select id="regNo"><option value="">เลือกเลขที่</option>${Array.from({length:40},(_,i)=>`<option>${i+1}</option>`).join('')}</select></div>
-  </div>
-  <div class="field"><label>รหัสนักเรียน <span class="required">*</span></label><input id="regId" inputmode="numeric" placeholder="เช่น 12345"></div>
-  <div class="field"><label>ตั้งรหัสผ่าน <span class="required">*</span></label><input id="regPass" type="password" placeholder="อย่างน้อย 4 ตัวอักษร"></div>
-  <button class="btn green" style="width:100%" onclick="registerUser()">สร้างบัญชี</button>
-  <p class="help" style="text-align:center;margin-top:15px">มีบัญชีแล้ว? <a href="#" onclick="showAuth('login');return false">เข้าสู่ระบบ</a></p>
- `;
-}
-function login(){
- const id=userKey(document.getElementById('loginId').value), pass=document.getElementById('loginPass').value;
- const u=getUsers()[id];
- if(!u || u.password!==pass){alert('รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง');return;}
- currentUser={id,className:u.className,no:u.no};
- localStorage.setItem('repair_current_user',JSON.stringify(currentUser));
- switchPage('report');
-}
-function registerUser(){
- const id=userKey(document.getElementById('regId').value), pass=document.getElementById('regPass').value;
- const className=document.getElementById('regClass').value, no=Number(document.getElementById('regNo').value);
- if(!id||!pass||pass.length<4||!className||!no){alert('กรอกข้อมูลให้ครบ และรหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร');return;}
- const users=getUsers();
- if(users[id]){alert('รหัสนักเรียนนี้มีบัญชีแล้ว กรุณาเข้าสู่ระบบ');return;}
- users[id]={password:pass,className,no};
- saveUsers(users);
- currentUser={id,className,no};
- localStorage.setItem('repair_current_user',JSON.stringify(currentUser));
- alert('สร้างบัญชีเรียบร้อย');
- switchPage('report');
-}
-function logout(){
- currentUser=null;
- localStorage.removeItem('repair_current_user');
- showAuth('login');
- switchPage('auth');
-}
-function requireLogin(){
- if(currentUser) return true;
- switchPage('auth');
- return false;
-}
+function badge(s){return '<span class="badge '+STATUS[s].cls+'">'+STATUS[s].label+'</span>';}
+function askNotify(){if('Notification' in window&&Notification.permission==='default')Notification.requestPermission();}
+function notify(msg){if('Notification' in window&&Notification.permission==='granted')new Notification('ระบบแจ้งซ่อม โรงเรียนมุกดาหาร',{body:msg});}
+function classOptions(){let a='<option value="">เลือกชั้นเรียน</option>';for(let g=1;g<=6;g++)for(let c=1;c<=12;c++)a+='<option value="ม.'+g+'/'+c+'">ม.'+g+'/'+c+'</option>';return a;}
+function numberOptions(){return '<option value="">เลือกเลขที่</option>'+Array.from({length:40},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('');}
+function roomField(place=''){const building=/^อาคาร/.test(place);return '<label>'+(building?'ห้องเรียน / ห้องที่พบปัญหา':'ห้อง / จุดที่พบปัญหา')+' <span class="required">*</span></label><input id="spot" maxlength="80" placeholder="'+(building?'เช่น ห้อง 402 หรือ ห้องปฏิบัติการ':'เช่น จุดล้างมือด้านหน้า หรือ ห้องน้ำชาย')+'"><div class="help">กรณีเลือกอาคาร ต้องระบุห้องทุกครั้ง</div>';}
 function renderReport(){
  const box=document.getElementById('reportBox');
- box.innerHTML=`
- <div class="account-bar"><div><b>บัญชีผู้แจ้ง</b><br><span class="small">${esc(accountLabel())}</span></div><button class="btn light small" onclick="logout()">ออกจากระบบ</button></div>
- <div class="notice">🔒 ระบบจะผูกเรื่องแจ้งซ่อมไว้กับบัญชีนี้ คนอื่นจะไม่เห็นรายการของคุณ</div>
- <div class="field"><label>สถานที่ <span class="required">*</span></label><select id="place"><option value="">เลือกสถานที่</option>${PLACES.map(x=>`<option>${esc(x)}</option>`).join('')}</select></div>
- <div class="field" id="otherPlaceWrap" hidden><label>ระบุสถานที่อื่นๆ <span class="required">*</span></label><input id="otherPlace" maxlength="100" placeholder="กรอกชื่อสถานที่ที่ต้องการแจ้งซ่อม"></div>
- <div class="field" id="spotWrap">${roomField('')}</div>
- <div class="field"><label>ประเภทปัญหา <span class="required">*</span></label><select id="cat"><option value="">เลือกประเภท</option>${CATS.map(x=>`<option>${esc(x)}</option>`).join('')}</select></div>
- <div class="field"><label>ความเร่งด่วน</label><select id="urg"><option value="low">ปกติ</option><option value="high">ควรรีบซ่อม</option><option value="danger">อันตราย</option></select></div>
- <div class="field"><label>รายละเอียดปัญหา <span class="required">*</span></label><textarea id="detail" maxlength="500" placeholder="อธิบายอาการ เช่น แอร์ไม่เย็น น้ำรั่ว ไฟไม่ติด..."></textarea></div>
- <div class="actions"><button class="btn green" id="send">ส่งเรื่องแจ้งซ่อม</button><button class="btn light" id="clear">ล้างข้อมูล</button></div>`;
- document.getElementById('place').onchange=()=>{
-   const p=document.getElementById('place').value;
-   document.getElementById('spotWrap').innerHTML=roomField(p);
-   document.getElementById('otherPlaceWrap').hidden=p!=='สถานที่อื่นๆ';
- };
- document.getElementById('send').onclick=submitReport;
- document.getElementById('clear').onclick=renderReport;
+ box.innerHTML='<div class="notice">🔒 ข้อมูลชั้นเรียนและเลขที่ผู้แจ้งจะไม่แสดงต่อผู้ใช้ทั่วไป และจะแสดงเฉพาะเจ้าหน้าที่</div><div class="grid"><div class="field"><label>ชั้น / ห้อง <span class="required">*</span></label><select id="studentClass">'+classOptions()+'</select></div><div class="field"><label>เลขที่ <span class="required">*</span></label><select id="studentNo">'+numberOptions()+'</select></div></div><div class="field"><label>สถานที่ <span class="required">*</span></label><select id="place"><option value="">เลือกสถานที่</option>'+PLACES.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></div><div class="field" id="otherPlaceWrap" hidden><label>ระบุสถานที่อื่นๆ <span class="required">*</span></label><input id="otherPlace" maxlength="100" placeholder="กรอกชื่อสถานที่"></div><div class="field" id="spotWrap">'+roomField('')+'</div><div class="field"><label>ประเภทปัญหา <span class="required">*</span></label><select id="cat"><option value="">เลือกประเภท</option>'+CATS.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></div><div class="field"><label>ความเร่งด่วน</label><select id="urg"><option value="low">ปกติ</option><option value="high">ควรรีบซ่อม</option><option value="danger">อันตราย</option></select></div><div class="field"><label>รายละเอียดปัญหา <span class="required">*</span></label><textarea id="detail" maxlength="500" placeholder="อธิบายอาการ เช่น แอร์ไม่เย็น น้ำรั่ว ไฟไม่ติด..."></textarea></div><div class="actions"><button class="btn green" id="send">ส่งเรื่องแจ้งซ่อม</button><button class="btn light" id="clear">ล้างข้อมูล</button></div>';
+ document.getElementById('place').onchange=()=>{const p=document.getElementById('place').value;document.getElementById('spotWrap').innerHTML=roomField(p);document.getElementById('otherPlaceWrap').hidden=p!=='สถานที่อื่นๆ';};
+ document.getElementById('send').onclick=submitReport;document.getElementById('clear').onclick=renderReport;
 }
 function submitReport(){
- if(!currentUser){alert('กรุณาเข้าสู่ระบบก่อนแจ้งซ่อม');return;}
- const cl=currentUser.className,no=currentUser.no,place=document.getElementById('place').value;
- const other=document.getElementById('otherPlace').value.trim();
- const finalPlace=place==='สถานที่อื่นๆ'?other:place;
- const spot=document.getElementById('spot').value.trim(),cat=document.getElementById('cat').value,urg=document.getElementById('urg').value,detail=document.getElementById('detail').value.trim();
+ const cl=document.getElementById('studentClass').value,no=Number(document.getElementById('studentNo').value),place=document.getElementById('place').value,other=(document.getElementById('otherPlace')?.value||'').trim(),finalPlace=place==='สถานที่อื่นๆ'?other:place,spot=document.getElementById('spot').value.trim(),cat=document.getElementById('cat').value,urg=document.getElementById('urg').value,detail=document.getElementById('detail').value.trim();
  if(!cl||!no||!place||(place==='สถานที่อื่นๆ'&&!other)||!spot||!cat||detail.length<5){alert('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบ และระบุห้อง/จุดที่พบปัญหา');return;}
- const id=reports.reduce((m,r)=>Math.max(m,r.id),0)+1, now=Date.now();
- const r={id,ownerId:currentUser.id,studentClass:cl,studentNo:Number(no),place:finalPlace,spot,category:cat,urgency:urg,detail,status:'new',createdAt:now,history:[{status:'new',at:now,note:'รับเรื่องแจ้งซ่อมแล้ว'}]};
+ const duplicate=reports.find(r=>r.status!=='done'&&r.place===finalPlace&&r.spot.toLowerCase()===spot.toLowerCase()&&r.category===cat);
+ if(duplicate&&!confirm('มีคนแจ้งปัญหาลักษณะเดียวกันที่สถานที่และจุดนี้แล้ว ('+ticket(duplicate)+')\nต้องการส่งเรื่องซ้ำหรือไม่?'))return;
+ const id=reports.reduce((m,r)=>Math.max(m,r.id||0),0)+1,now=Date.now(),r={id,studentClass:cl,studentNo:no,place:finalPlace,spot,category:cat,urgency:urg,detail,status:'new',createdAt:now,history:[{status:'new',at:now,note:'รับเรื่องแจ้งซ่อมแล้ว'}]};
  reports.unshift(r);save();askNotify();
- document.getElementById('reportBox').innerHTML=`<div class="ticket">ส่งเรื่องเรียบร้อย<small>รหัสแจ้งซ่อม</small><strong>${ticket(r)}</strong></div>
- <div class="notice">📌 เก็บรหัสนี้ไว้สำหรับติดตามสถานะ โดยต้องใช้ร่วมกับชั้นเรียนและเลขที่ของผู้แจ้ง</div>
- <p><b>${esc(place)} — ${esc(spot)}</b></p><div class="actions"><button class="btn green" onclick="switchPage('track');showTrackForm('${ticket(r)}')">ติดตามเรื่องนี้</button><button class="btn light" onclick="renderReport()">แจ้งเรื่องอื่น</button></div>`;
+ document.getElementById('reportBox').innerHTML='<div class="ticket">ส่งเรื่องเรียบร้อย<small>รหัสแจ้งซ่อม</small><strong>'+ticket(r)+'</strong></div><div class="notice">📌 กรุณาจดหรือถ่ายภาพรหัสนี้ไว้ สำหรับติดตามสถานะภายหลัง</div><p><b>'+esc(finalPlace)+' — '+esc(spot)+'</b></p><div class="actions"><button class="btn green" onclick="switchPage(\'track\');showTrackForm(\''+ticket(r)+'\')">ติดตามเรื่องนี้</button><button class="btn light" onclick="renderReport()">แจ้งเรื่องอื่น</button></div>';
 }
-
 function showTrackForm(prefill=''){
  const b=document.getElementById('trackBox');
- if(!currentUser){
-   b.innerHTML='<div class="card"><h3>เข้าสู่ระบบก่อน</h3><p class="small">เข้าสู่ระบบเพื่อดูรายการแจ้งซ่อมทั้งหมดของคุณ</p><button class="btn green" onclick="switchPage(\'auth\')">เข้าสู่ระบบ</button></div>';
-   return;
- }
- const mine=reports.filter(x=>(x.ownerId&&x.ownerId===currentUser.id)||(!x.ownerId&&x.studentClass===currentUser.className&&x.studentNo===currentUser.no));
- b.innerHTML=`<div class="account-bar"><div><b>รายการแจ้งซ่อมของฉัน</b><br><span class="small">${esc(accountLabel())}</span></div><button class="btn light small" onclick="askNotify()">🔔 เปิดแจ้งเตือน</button></div>
- <div id="trackResult">${mine.length?mine.map(ownCard).join(''):'<div class="notice">ยังไม่มีเรื่องแจ้งซ่อมในบัญชีนี้</div>'}</div>`;
+ b.innerHTML='<div class="field"><label>รหัสแจ้งซ่อม</label><input id="trackCode" placeholder="เช่น #00001" value="'+esc(prefill)+'"></div><div class="actions"><button class="btn green" onclick="trackByCode()">ตรวจสอบสถานะ</button><button class="btn light" onclick="checkDuplicate()">มีคนแจ้งปัญหานี้แล้วหรือยัง?</button><button class="btn light small" onclick="askNotify()">🔔 เปิดแจ้งเตือน</button></div><div id="trackResult" style="margin-top:16px"></div><div class="notice">🔐 หน้านี้ไม่แสดงชั้นเรียน เลขที่ หรือข้อมูลส่วนตัวของผู้แจ้ง</div>';
+ if(prefill)trackByCode();
 }
-function ownCard(r){
- return `<div class="item"><div class="item-head"><div><b>${ticket(r)}</b><br><span class="small">${esc(r.place)} • ${esc(r.spot)}</span></div>${badge(r.status)}</div>
- <div class="item-body"><p><b>ปัญหา:</b> ${esc(r.detail)}</p><p class="small">แจ้งเมื่อ ${fmt(r.createdAt)}</p>
- <ol class="timeline">${r.history.map(h=>`<li><b>${STATUS[h.status].label}</b><br><span class="small">${fmt(h.at)}${h.note?' — '+esc(h.note):''}</span></li>`).join('')}</ol></div></div>`;
+function trackByCode(){
+ const code=document.getElementById('trackCode').value.trim().replace('#',''),r=reports.find(x=>x.id===Number(code)),out=document.getElementById('trackResult');
+ if(!r){out.innerHTML='<div class="notice">ไม่พบรหัสแจ้งซ่อมนี้ กรุณาตรวจสอบรหัสอีกครั้ง</div>';return;}
+ out.innerHTML='<div class="item"><div class="item-head"><div><b>'+ticket(r)+'</b><br><span class="small">'+esc(r.place)+' • '+esc(r.spot)+'</span></div>'+badge(r.status)+'</div><div class="item-body"><p><b>ปัญหา:</b> '+esc(r.detail)+'</p><p class="small">แจ้งเมื่อ '+fmt(r.createdAt)+'</p><ol class="timeline">'+r.history.map(h=>'<li><b>'+STATUS[h.status].label+'</b><br><span class="small">'+fmt(h.at)+(h.note?' — '+esc(h.note):'')+'</span></li>').join('')+'</ol></div></div>';
 }
-
-function renderStaffLogin(){
- document.getElementById('staffBox').innerHTML=`<div class="lock"><h3>เข้าสู่ระบบเจ้าหน้าที่</h3><p class="small">สำหรับจัดการงานซ่อมเท่านั้น</p><div class="field"><label>รหัสเจ้าหน้าที่</label><input id="pin" type="password" inputmode="numeric" maxlength="12"></div><button class="btn green" onclick="loginStaff()">เข้าสู่ระบบ</button></div>`;
-}
+function checkDuplicate(){document.getElementById('trackResult').innerHTML='<div class="grid"><div class="field"><label>สถานที่</label><select id="checkPlace"><option value="">เลือกสถานที่</option>'+PLACES.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></div><div class="field"><label>ห้อง / จุด</label><input id="checkSpot" placeholder="เช่น ห้อง 402"></div></div><div class="field"><label>ประเภทปัญหา</label><select id="checkCat"><option value="">ทุกประเภท</option>'+CATS.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></div><button class="btn green" onclick="runDuplicateCheck()">ตรวจสอบ</button><div id="dupResult" style="margin-top:12px"></div>';}
+function runDuplicateCheck(){const p=document.getElementById('checkPlace').value,s=document.getElementById('checkSpot').value.trim().toLowerCase(),cat=document.getElementById('checkCat').value,m=reports.filter(r=>r.status!=='done'&&r.place===p&&(!s||r.spot.toLowerCase()===s)&&(!cat||r.category===cat));document.getElementById('dupResult').innerHTML=m.length?'<div class="notice">⚠️ พบเรื่องที่ยังดำเนินการอยู่ '+m.length+' รายการในจุดนี้ โดยไม่แสดงข้อมูลผู้แจ้ง</div>':'<div class="notice">✅ ยังไม่พบเรื่องที่กำลังดำเนินการอยู่ในจุดนี้</div>';}
+function renderStaffLogin(){document.getElementById('staffBox').innerHTML='<div class="lock"><h3>เข้าสู่ระบบเจ้าหน้าที่</h3><p class="small">สำหรับจัดการงานซ่อมเท่านั้น</p><div class="field"><label>รหัสเจ้าหน้าที่</label><input id="pin" type="password" inputmode="numeric" maxlength="12"></div><button class="btn green" onclick="loginStaff()">เข้าสู่ระบบ</button></div>';}
 function loginStaff(){if(document.getElementById('pin').value===STAFF_PIN){staff=true;renderStaff();}else alert('รหัสเจ้าหน้าที่ไม่ถูกต้อง');}
 function renderStaff(){
- const box=document.getElementById('staffBox');
- if(!staff){renderStaffLogin();return;}
- let rows=reports.slice().sort((a,b)=>((a.status==='done')-(b.status==='done'))||(b.createdAt-a.createdAt));
- box.innerHTML=`<div class="actions"><button class="btn light" onclick="staff=false;renderStaff()">ออกจากระบบ</button><span class="small">พบ ${reports.length} รายการ</span></div>
- <div class="notice">🔐 ข้อมูลชั้นเรียนและเลขที่ผู้แจ้งแสดงเฉพาะเจ้าหน้าที่ และไม่แสดงในหน้าติดตามสาธารณะ</div>
- <div>${rows.length?rows.map(staffCard).join(''):'<div class="empty">ยังไม่มีรายการแจ้งซ่อม</div>'}</div>`;
+ const box=document.getElementById('staffBox');if(!staff){renderStaffLogin();return;}
+ const rows=reports.slice().sort((a,b)=>(a.status==='done')-(b.status==='done')||(b.createdAt-a.createdAt));
+ box.innerHTML='<div class="actions"><button class="btn light" onclick="staff=false;renderStaff()">ออกจากระบบ</button><span class="small">พบ '+reports.length+' รายการ</span></div><div class="notice">🔐 ข้อมูลชั้นเรียนและเลขที่ผู้แจ้งแสดงเฉพาะเจ้าหน้าที่</div>'+(rows.length?rows.map(staffCard).join(''):'<div class="empty">ยังไม่มีรายการแจ้งซ่อม</div>');
 }
-function staffCard(r){
- return `<div class="item"><div class="item-head"><div><b>${ticket(r)}</b> ${badge(r.status)}<br>${esc(r.place)} — ${esc(r.spot)}<br><span class="small">ผู้แจ้ง: ${esc(r.studentClass)} เลขที่ ${r.studentNo} • ${fmt(r.createdAt)}</span></div></div>
- <div class="item-body"><p><b>${esc(r.category)}</b> • ${esc(r.detail)}</p>
- <div class="grid"><div class="field"><label>สถานะใหม่</label><select id="s-${r.id}">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${r.status===k?'selected':''}>${v.label}</option>`).join('')}</select></div>
- <div class="field"><label>ข้อความถึงผู้แจ้ง</label><input id="n-${r.id}" placeholder="เช่น ช่างจะเข้าตรวจพรุ่งนี้"></div></div>
- <div class="actions"><button class="btn green" onclick="updateStatus(${r.id})">บันทึกความคืบหน้า</button><button class="btn red" onclick="deleteReport(${r.id})">ลบรายการ</button></div>
- </div></div>`;
-}
-function updateStatus(id){
- const r=reports.find(x=>x.id===id),s=document.getElementById('s-'+id).value,n=document.getElementById('n-'+id).value.trim(),now=Date.now();
- if(r.status===s&&!n){alert('เลือกสถานะใหม่หรือใส่ข้อความก่อนบันทึก');return;}
- r.status=s;r.history.push({status:s,at:now,note:n||('อัปเดตสถานะเป็น'+STATUS[s].label)});save();notify(ticket(r)+' เปลี่ยนสถานะเป็น '+STATUS[s].label);renderStaff();
-}
+function staffCard(r){return '<div class="item"><div class="item-head"><div><b>'+ticket(r)+'</b> '+badge(r.status)+'<br>'+esc(r.place)+' — '+esc(r.spot)+'<br><span class="small">ผู้แจ้ง: '+esc(r.studentClass)+' เลขที่ '+r.studentNo+' • '+fmt(r.createdAt)+'</span></div></div><div class="item-body"><p><b>'+esc(r.category)+'</b> • '+esc(r.detail)+'</p><div class="grid"><div class="field"><label>สถานะใหม่</label><select id="s-'+r.id+'">'+Object.entries(STATUS).map(([k,v])=>'<option value="'+k+'" '+(r.status===k?'selected':'')+'>'+v.label+'</option>').join('')+'</select></div><div class="field"><label>ข้อความถึงผู้แจ้ง</label><input id="n-'+r.id+'" placeholder="เช่น ช่างจะเข้าตรวจพรุ่งนี้"></div></div><div class="actions"><button class="btn green" onclick="updateStatus('+r.id+')">บันทึกความคืบหน้า</button><button class="btn red" onclick="deleteReport('+r.id+')">ลบรายการ</button></div></div></div>';}
+function updateStatus(id){const r=reports.find(x=>x.id===id),s=document.getElementById('s-'+id).value,n=document.getElementById('n-'+id).value.trim(),now=Date.now();if(r.status===s&&!n){alert('เลือกสถานะใหม่หรือใส่ข้อความก่อนบันทึก');return;}r.status=s;r.history.push({status:s,at:now,note:n||('อัปเดตสถานะเป็น '+STATUS[s].label)});save();notify(ticket(r)+' เปลี่ยนสถานะเป็น '+STATUS[s].label);renderStaff();}
 function deleteReport(id){if(confirm('ยืนยันลบรายการนี้?')){reports=reports.filter(r=>r.id!==id);save();renderStaff();}}
-
-function switchPage(page){
- if((page==='report'||page==='track')&&!currentUser){page='auth';}
- currentPage=page;document.querySelectorAll('.page').forEach(x=>x.hidden=x.id!==page);
- document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));
- if(page==='auth')showAuth('login');
- if(page==='report')renderReport();
- if(page==='track')showTrackForm();
- if(page==='staff')renderStaff();
-}
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>switchPage(b.dataset.page));
-if(currentUser) switchPage('report'); else switchPage('auth');
+function switchPage(page){document.querySelectorAll('.page').forEach(x=>x.hidden=x.id!==page);document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));if(page==='report')renderReport();if(page==='track')showTrackForm();if(page==='staff')renderStaff();}
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>switchPage(b.dataset.page));switchPage('report');
 </script>
 </body>
 </html>
